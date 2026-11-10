@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+# 二进制资产，别让 Git 碰
+*.mp3 binary
+*.png binary
+*.webp binary
+*.jpg binary

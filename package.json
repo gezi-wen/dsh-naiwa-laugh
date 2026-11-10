@@ -1,0 +1,46 @@
+{
+  "name": "dsh-naiwa-laugh",
+  "version": "0.1.0",
+  "description": "每轮跑完笑一声：随机播放奶蛙音效，纯折磨人用。作者在精神状态美妙的情况下做的，不建议在图书馆开。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./icon": "./icon.png",
+    "./package.json": "./package.json"
+  },
+  "icon": "./icon.png",
+  "files": [
+    "lib",
+    "assets",
+    "icon.png",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "naiwa",
+    "meme",
+    "sound",
+    "annoying",
+    "abstract"
+  ],
+  "license": "MIT",
+  "author": "gezi-wen",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gezi-wen/dsh-naiwa-laugh.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gezi-wen/dsh-naiwa-laugh/issues"
+  },
+  "homepage": "https://github.com/gezi-wen/dsh-naiwa-laugh#readme",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
