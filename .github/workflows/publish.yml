@@ -1,0 +1,83 @@
+# Trusted Publishing（OIDC）—— push 一个 v* tag 就发布，不需要 NPM_TOKEN、不需要 OTP。
+#
+# 为什么：npm 收紧了「绕过 2FA 的 granular token」——2026-07-30 起账号治理动作必须交互式 2FA，
+# 2027-01 起 bypass-2FA token 连直接发布都不许。OIDC 是官方替代：CI 现场领一次性凭据，
+# 并给包附 provenance 签名（谁、哪个 commit、哪个 workflow 构建的，可追溯）。
+#
+# 前置（一次性，需要网页 2FA）：npmjs.com → 包 dsh-naiwa-laugh → Settings → Trusted publishing
+#   Publisher: GitHub Actions / Repository: gezi-wen/dsh-naiwa-laugh / Workflow: publish.yml
+#   **没配这一条，真发布会回 404 / ENEEDAUTH，而 dry_run 仍然是绿的（dry-run 不上传、不鉴权）。**
+#
+# 两种触发：
+#   - push `v*` tag：正式发布（tag 必须与 package.json 的 version 完全一致）；
+#   - workflow_dispatch + dry_run=true：只跑安装/测试/打包预演，**不发布**。
+#
+# 故意不写 registry-url：actions/setup-node 的 registry-url 会往 .npmrc 写
+# `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}`，NODE_AUTH_TOKEN 为空时会挡住 OIDC 交换。
+# 本包不依赖私有 registry，用 npm 默认源即可。
+# 也不写 NPM_TOKEN secret：写一个用不到的 secret，反而是将来 401 的诱因。
+
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只预演（npm publish --dry-run），不真正发布'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # OIDC：向 npm 领取一次性发布凭据
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Trusted Publishing 要求 npm >= 11.5.1；node 20 自带 npm 10
+      - name: npm 11 for trusted publishing
+        run: npm install -g npm@^11 && npm --version
+
+      # 只有 tag 触发才校验版本一致性；手动触发没有 tag 可比
+      - name: Check tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG package=$PKG"
+          [ "$TAG" = "$PKG" ] || { echo "::error::tag $TAG != package.json $PKG"; exit 1; }
+
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-package-lock; fi
+
+      - name: Test
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.test?0:1)"; then
+            npm test
+          else
+            echo "no test script, skip"
+          fi
+
+      - name: Publish (trusted publishing)
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            # `--dry-run` 仍会向 registry 查重：版本已发布时直接报
+            # "You cannot publish over the previously published versions"。
+            # 预演就把版本号临时改成 <ver>-dryrun.<run number>，不提交、不发布。
+            node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=p.version+'-dryrun.'+process.env.GITHUB_RUN_NUMBER;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');console.log('dry-run version:',p.version)"
+            # 预发布号必须显式给 --tag，否则 npm 拒绝（dry-run 也一样）
+            npm publish --dry-run --access public --tag dryrun
+          else
+            npm publish --provenance --access public
+          fi
