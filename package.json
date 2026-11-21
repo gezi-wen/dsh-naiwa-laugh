@@ -1,9 +1,12 @@
 {
   "name": "dsh-naiwa-laugh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "每轮跑完笑一声：随机播放奶蛙音效，纯折磨人用。作者在精神状态美妙的情况下做的，不建议在图书馆开。",
   "type": "module",
   "main": "lib/index.js",
+  "scripts": {
+    "test": "node test/guard.test.mjs"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./icon": "./icon.png",
